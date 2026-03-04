@@ -1,0 +1,62 @@
+# AutoDoc AI — Fine-tuning Configuration
+# Base model: deepseek-ai/deepseek-coder-6.7b-instruct
+# Method: LoRA (Parameter-Efficient Fine-Tuning via PEFT)
+# Platform: DigitalOcean Gradient AI GPU
+
+# ─── Model ───────────────────────────────────────────────────────────────────
+model:
+  name: "deepseek-ai/deepseek-coder-6.7b-instruct"
+  dtype: "bfloat16"           # bfloat16 saves VRAM, stable training
+  trust_remote_code: true
+
+# ─── LoRA Config ─────────────────────────────────────────────────────────────
+lora:
+  r: 16                       # Rank — higher = more capacity, more VRAM
+  lora_alpha: 32              # Scaling factor (usually 2x r)
+  lora_dropout: 0.05
+  bias: "none"
+  task_type: "CAUSAL_LM"
+  target_modules:             # Which layers to apply LoRA to
+    - "q_proj"
+    - "v_proj"
+    - "k_proj"
+    - "o_proj"
+
+# ─── Training Hyperparameters ────────────────────────────────────────────────
+training:
+  output_dir: "./output/checkpoints"
+  final_model_dir: "./output/final_model"
+  num_train_epochs: 3
+  per_device_train_batch_size: 4
+  per_device_eval_batch_size: 4
+  gradient_accumulation_steps: 8   # Effective batch = 4 * 8 = 32
+  learning_rate: 2.0e-4
+  weight_decay: 0.01
+  warmup_ratio: 0.05
+  lr_scheduler_type: "cosine"
+  max_seq_length: 1024
+  logging_steps: 50
+  eval_steps: 200
+  save_steps: 200
+  save_total_limit: 3           # Keep only 3 best checkpoints
+  load_best_model_at_end: true
+  metric_for_best_model: "eval_loss"
+  report_to: "none"             # Change to "wandb" if using wandb
+
+# ─── Dataset ─────────────────────────────────────────────────────────────────
+dataset:
+  train_file: "./data/train.jsonl"
+  eval_file: "./data/eval.jsonl"
+  text_field: "text"            # Field name after formatting
+
+# ─── Prompt Template ─────────────────────────────────────────────────────────
+# This is what each training example is formatted as:
+prompt_template: |
+  ### Instruction:
+  {instruction}
+
+  ### Code:
+  {input}
+
+  ### Documentation:
+  {output}

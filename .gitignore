@@ -1,0 +1,30 @@
+# Environment — never commit real secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+.venv/
+venv/
+ocean/
+env/
+
+# Data & model artifacts — too large for git
+data/
+output/
+tmp/
+autodoc_adapter/
+tmp_generated_docs.md
+tests/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
