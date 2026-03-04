@@ -14,8 +14,9 @@ The AI layer is organized into modular services in `ai/services/`:
 - **`embedder.py`**: CodeBERT-based vectorization (768-dim) + ChromaDB.
 - **`repo_indexer.py`**: GitHub cloning and AST-based code chunking.
 - **`rag_service.py`**: Retrieval-Augmented Generation pipeline.
-- **`doc_generator.py`**: Orchestrates 5 doc types (README, API, Diagram, etc.).
+- **`doc_generator.py`**: Orchestrates 6 doc types (README, API, Diagram, **Audit**, etc.).
 - **`chat_agent.py`**: Stateful conversational agent with repository context.
+- **`commit_assistant.py`**: ⭐️ **Elite**: AI utility to write professional git commit messages.
 
 ---
 
@@ -58,6 +59,21 @@ Member 2 (Backend/Frontend) should call the services in this order:
 1. `RepoIndexer.index_repo(url, job_id)` -> Indexes the repo into ChromaDB.
 2. `DocGenerator.generate(type, job_id, meta)` -> Returns Markdown documentation.
 3. `ChatAgent(job_id).chat(message)` -> Returns stateful AI response with sources.
+4. `DocGenerator.generate("audit", job_id)` -> ⭐️ **Elite**: Security & Health Audit.
+
+---
+
+## ⭐️ Elite AI Utilities
+
+### AI Commit Assistant
+Tired of writing `git commit -m "fix"`?
+```bash
+# Stage your changes
+git add .
+# Generate a professional message
+python services/commit_assistant.py
+```
+Outputs a perfect Conventional Commit message with emojis!
 
 ---
 

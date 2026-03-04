@@ -46,6 +46,16 @@ DOC_TYPE_CONFIG = {
         "max_tokens": 1024,
         "description": "New contributor onboarding guide",
     },
+    "audit": {
+        "prompt_name": "audit",
+        "max_tokens": 2048,
+        "description": "Security & Code Health Audit",
+    },
+    "code-review": {
+        "prompt_name": "code_review",
+        "max_tokens": 2048,
+        "description": "Technical Debt & Security Audit",
+    },
 }
 
 
@@ -232,6 +242,52 @@ class DocGenerator:
         system = self._load_prompt("onboarding")
         return self.llm.generate(user_message, system, max_tokens=1200)
 
+    # ─── SECURITY AUDIT ───────────────────────────────────────────────────────
+
+    def generate_audit(self, job_id: str, repo_meta: dict) -> str:
+        """
+        Generate a security and code health audit report.
+
+        Returns:
+            Audit report as Markdown
+        """
+        context = self._get_top_chunks(
+            job_id,
+            "vulnerability security secret hardcoded thread-safety complexity",
+            top_k=15,
+        )
+
+        user_message = (
+            f"Repository: {repo_meta.get('repo_name', 'Unknown')}\n\n"
+            f"Please audit the following code context:\n\n{context}"
+        )
+
+        system = self._load_prompt("audit")
+        return self.llm.generate(user_message, system, max_tokens=2000)
+
+    # ─── CODE REVIEW & AUDIT ───────────────────────────────────────────────
+
+    def generate_code_review(self, job_id: str, repo_meta: dict) -> str:
+        """
+        Generate a technical debt and security audit report.
+
+        Returns:
+            Markdown audit report
+        """
+        context = self._get_top_chunks(
+            job_id,
+            "vulnerability security performance bottleneck debt complexity logic",
+            top_k=15,
+        )
+
+        user_message = (
+            f"Repository: {repo_meta.get('repo_name', 'Unknown')}\n\n"
+            f"Analyzing these code segments for health and security:\n\n{context}"
+        )
+
+        system = self._load_prompt("code_review")
+        return self.llm.generate(user_message, system, max_tokens=2000)
+
     # ─── Unified Entry Point ──────────────────────────────────────────────────
 
     def generate(self, doc_type: str, job_id: str, repo_meta: dict) -> str:
@@ -255,6 +311,8 @@ class DocGenerator:
             "diagram": self.generate_diagram,
             "changelog": self.generate_changelog,
             "onboarding": self.generate_onboarding,
+            "audit": self.generate_audit,
+            "code-review": self.generate_code_review,
         }
 
         if doc_type not in dispatch:
