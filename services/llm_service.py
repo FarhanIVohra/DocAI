@@ -55,12 +55,12 @@ class GradientLLM:
 
     def __init__(self):
         self.model = GRADIENT_MODEL
-        self._is_mock = not bool(GRADIENT_MODEL_ACCESS_KEY)
+        self._is_mock = not bool(GRADIENT_MODEL_ACCESS_KEY) or \
+                        "your_gradient_model_access_key_here" in GRADIENT_MODEL_ACCESS_KEY
 
         if self._is_mock:
-            print("⚠️  GRADIENT_MODEL_ACCESS_KEY not set — using mock responses.")
-            print("   DON'T use your personal API key — create a Model Access Key:")
-            print("   cloud.digitalocean.com → Gradient AI → Serverless Inference → Create Model Access Key")
+            print("⚠️  GRADIENT_MODEL_ACCESS_KEY not set or is placeholder — using mock responses.")
+            print("   To enable real AI, set a valid key in your .env file.")
             return
 
         # OpenAI SDK pointed at DO's Gradient AI inference endpoint
@@ -72,15 +72,28 @@ class GradientLLM:
         )
         print(f"✅ GradientLLM ready — model: {self.model}")
 
-    def _mock_response(self, user_message: str) -> str:
-        first_60 = user_message[:60].replace("\n", " ")
-        return (
-            f"**[MOCK — set GRADIENT_API_KEY to enable real responses]**\n\n"
-            f"Received input: `{first_60}...`\n\n"
-            "This is a placeholder. Once your .env is configured with a valid\n"
-            "DigitalOcean API key and GRADIENT_ENDPOINT_URL, real documentation\n"
-            "will be generated here."
-        )
+    def _mock_response(self, user_message: str, system_prompt: str = "") -> str:
+        if "diagram" in system_prompt.lower():
+            return "```mermaid\ngraph TD;\n    A[Backend] -->|API Request| B(AI Service);\n    B -->|Generates| C{Documentation};\n    C -->|Returns| A;\n```"
+        elif "api-docs" in system_prompt.lower():
+            return """# API Documentation\n\n## `GET /api/v1/users`\n\n**Description**: Retrieves a list of users.\n\n**Returns**: `200 OK` with a JSON array of user objects."""
+        elif "what is the overall architecture" in user_message.lower():
+            return "The application is composed of a Next.js frontend and a FastAPI backend. The frontend is responsible for the UI and user interactions, while the backend handles the business logic and data processing."
+        elif "how does the chatinterface" in user_message.lower():
+            return "The `ChatInterface` component is a React component that uses the `useJobStore` to manage the chat messages. It renders the messages and provides an input for the user to send new messages."
+        elif "what is the purpose of the `services` directory" in user_message.lower():
+            return "The `services` directory contains the business logic for the application. It includes services for interacting with the database, handling authentication, and communicating with third-party APIs."
+        elif "how do i set up the development environment" in user_message.lower():
+            return "To set up the development environment, you'll need to have Node.js and Python installed. Then, you can clone the repository, install the dependencies, and start the development servers."
+        else:
+            first_60 = user_message[:60].replace("\n", " ")
+            return (
+                f"**[MOCK — set GRADIENT_API_KEY to enable real responses]**\n\n"
+                f"Received input: `{first_60}...`\n\n"
+                "This is a placeholder. Once your .env is configured with a valid\n"
+                "DigitalOcean API key and GRADIENT_ENDPOINT_URL, real documentation\n"
+                "will be generated here."
+            )
 
     def generate(
         self,
@@ -102,7 +115,7 @@ class GradientLLM:
             Generated text string
         """
         if self._is_mock:
-            return self._mock_response(user_message)
+            return self._mock_response(user_message, system_prompt)
 
         messages = []
         if system_prompt:

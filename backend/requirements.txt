@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+python-dotenv
+SQLAlchemy
+psycopg2-binary
+redis
+celery
+pydantic
+requests
+httpx
+PyGithub
+
+bleach

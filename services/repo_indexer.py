@@ -23,7 +23,7 @@ from typing import Optional
 from services.embedder import get_embedder
 
 # ─── Config ──────────────────────────────────────────────────────────────────
-REPOS_TMP_DIR = Path(os.getenv("REPOS_TMP_DIR", "/tmp/autodoc_repos"))
+REPOS_TMP_DIR = Path(tempfile.gettempdir()) / "autodoc_repos"
 SUPPORTED_EXTENSIONS = {".py", ".js", ".ts", ".java", ".go", ".rb", ".cpp", ".c"}
 MAX_FILE_SIZE_BYTES = 100_000   # Skip files larger than 100KB
 MAX_FILES_PER_REPO = 200        # Cap to avoid huge repos taking forever
@@ -93,6 +93,15 @@ class RepoIndexer:
         # Prioritize smaller, focused files — sort by size ascending
         files.sort(key=lambda f: f.stat().st_size)
         return files[:MAX_FILES_PER_REPO]
+
+    def get_repo_meta(self, job_id: str) -> dict:
+        """Get repository metadata from the database."""
+        # In a real app, this would fetch from a database.
+        # For now, we'll just return a mock response.
+        return {
+            "repo_url": f"https://github.com/mock/repo",
+            "repo_name": "mock/repo",
+        }
 
     # ── Python AST Parsing (fallback for tree-sitter) ─────────────────────────
 
@@ -210,9 +219,21 @@ class RepoIndexer:
 
     def _extract_chunks(self, file_path: Path, repo_root: Path) -> list[dict]:
         """Route to the appropriate parser based on file extension."""
+        chunks = []
         if file_path.suffix == ".py":
-            return self._extract_chunks_python(file_path, repo_root)
-        return self._extract_chunks_generic(file_path, repo_root)
+            chunks = self._extract_chunks_python(file_path, repo_root)
+        else:
+            chunks = self._extract_chunks_generic(file_path, repo_root)
+            
+        # Reformat chunks for the embedder
+        formatted_chunks = []
+        for c in chunks:
+            formatted_chunks.append({
+                "id": c["id"],
+                "content": c["text"],  # Embedder expects 'content'
+                "metadata": c["metadata"]
+            })
+        return formatted_chunks
 
     # ── Dependency Graph ────────────────────────────────────────────────────
 
@@ -253,29 +274,50 @@ class RepoIndexer:
         repo_path = self._clone_repo(repo_url, job_id)
         return self.index_local_path(repo_path, job_id, repo_url=repo_url)
 
-    def index_local_path(self, repo_path: Path, job_id: str, repo_url: str = "") -> dict:
+    def index_local_path(self, repo_path: Path, job_id: str, repo_url: str = "", update_status_callback=None) -> dict:
         """
         Indexes a local directory.
         """
         # Discover files
         files = self._discover_files(repo_path)
         print(f"📂 Found {len(files)} code files to index at {repo_path}")
+        if update_status_callback:
+            update_status_callback(20)
 
         # Extract chunks
         all_chunks = []
-        for f in files:
+        for i, f in enumerate(files):
             chunks = self._extract_chunks(f, repo_path)
             all_chunks.extend(chunks)
+            if update_status_callback and i % 5 == 0:
+                # Progress from 20% to 60% during chunk extraction
+                progress = 20 + int((i / len(files)) * 40)
+                update_status_callback(progress)
 
         print(f"🔀 Extracted {len(all_chunks)} code chunks from {len(files)} files")
+        if update_status_callback:
+            update_status_callback(60)
 
         # Extract dependency graph for diagram generation
         dep_graph = self.extract_dependency_graph(repo_path)
+        if update_status_callback:
+            update_status_callback(70)
 
         # Index into ChromaDB
         collection_name = f"repo_{job_id}"
         if all_chunks:
-            self.embedder.index_chunks(all_chunks, collection_name)
+            # Batch size for indexing
+            batch_size = 50
+            for i in range(0, len(all_chunks), batch_size):
+                batch = all_chunks[i:i + batch_size]
+                self.embedder.index_chunks(batch, collection_name)
+                if update_status_callback:
+                    # Progress from 70% to 95% during indexing
+                    progress = 70 + int((i / len(all_chunks)) * 25)
+                    update_status_callback(progress)
+
+        if update_status_callback:
+            update_status_callback(100)
 
         return {
             "job_id": job_id,

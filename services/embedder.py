@@ -1,204 +1,103 @@
 """
 embedder.py
 ───────────
-Code-aware embedding pipeline using microsoft/codebert-base.
-Embeds code chunks and stores/retrieves them in ChromaDB.
-
-Usage:
-    from services.embedder import CodeEmbedder
-    embedder = CodeEmbedder()
-    embedder.index_chunks(chunks, collection_name="my_repo_jobid")
-    results = embedder.search("how does auth work?", collection_name="my_repo_jobid")
+Fast embedding pipeline using sentence-transformers (all-MiniLM-L6-v2).
+Optimized for speed and low memory usage.
 """
 
 import os
 from typing import Optional
-
 import chromadb
-import torch
 from chromadb.config import Settings
-from transformers import AutoModel, AutoTokenizer
+from chromadb.utils import embedding_functions
 
 # ─── Config ──────────────────────────────────────────────────────────────────
-CODEBERT_MODEL = "microsoft/codebert-base"
+# Using a much lighter and faster model: 80MB vs 440MB for CodeBERT
+FAST_MODEL = "all-MiniLM-L6-v2"
 CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", "./data/chroma_db")
-EMBEDDING_DIM = 768         # CodeBERT output dimension
-MAX_CHUNK_TOKENS = 512       # Max tokens per chunk for CodeBERT
-TOP_K_RESULTS = 5            # Default number of search results
+TOP_K_RESULTS = 5
 
 
 class CodeEmbedder:
     """
-    Embeds code chunks using CodeBERT and stores them in ChromaDB.
-    Supports per-repo collections so different repos stay isolated.
+    Embeds code chunks using a fast sentence-transformer model.
     """
 
     def __init__(self):
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        print(f"📡 CodeEmbedder using device: {self.device}")
-
-        self._model: Optional[AutoModel] = None
-        self._tokenizer: Optional[AutoTokenizer] = None
-
+        print(f"📡 CodeEmbedder using fast model: {FAST_MODEL}")
+        
         # ChromaDB persistent client
         self.chroma_client = chromadb.PersistentClient(
             path=CHROMA_PERSIST_DIR,
             settings=Settings(anonymized_telemetry=False),
         )
+        
+        # Use ChromaDB's built-in SentenceTransformer embedding function
+        # This is much faster and handles batching/tokenization automatically
+        self._embedding_fn = None
 
-    def _load_model(self):
-        """Lazy-load CodeBERT (only when first embedding is needed)."""
-        if self._model is None:
-            print(f"📦 Loading CodeBERT: {CODEBERT_MODEL}")
-            self._tokenizer = AutoTokenizer.from_pretrained(CODEBERT_MODEL)
-            self._model = AutoModel.from_pretrained(CODEBERT_MODEL).to(self.device)
-            self._model.eval()
-            print("✅ CodeBERT loaded.")
+    @property
+    def embedding_fn(self):
+        if self._embedding_fn is None:
+            print(f"📦 Loading ONNX embedding model: {FAST_MODEL}")
+            try:
+                # ONNX version is more robust and faster in restricted environments
+                self._embedding_fn = embedding_functions.ONNXMiniLM_L6_V2()
+            except Exception as e:
+                print(f"⚠️ Error loading ONNX model: {e}. Falling back to DefaultEmbeddingFunction.")
+                self._embedding_fn = embedding_functions.DefaultEmbeddingFunction()
+            print("✅ Embedding model loaded.")
+        return self._embedding_fn
 
-    def _embed_text(self, text: str) -> list[float]:
+    def index_chunks(self, chunks: list[dict], collection_name: str):
         """
-        Embed a single text string using CodeBERT.
-        Returns a 768-dimensional vector.
+        Stores chunks in a collection. Chunks should have 'content' and 'metadata'.
         """
-        self._load_model()
-
-        inputs = self._tokenizer(
-            text,
-            return_tensors="pt",
-            truncation=True,
-            max_length=MAX_CHUNK_TOKENS,
-            padding=True,
-        ).to(self.device)
-
-        with torch.no_grad():
-            outputs = self._model(**inputs)
-            # Use [CLS] token embedding as the representation
-            embedding = outputs.last_hidden_state[:, 0, :].squeeze()
-
-        return embedding.cpu().tolist()
-
-    def _embed_batch(self, texts: list[str]) -> list[list[float]]:
-        """Embed a list of texts in one batch for efficiency."""
-        self._load_model()
-
-        inputs = self._tokenizer(
-            texts,
-            return_tensors="pt",
-            truncation=True,
-            max_length=MAX_CHUNK_TOKENS,
-            padding=True,
-        ).to(self.device)
-
-        with torch.no_grad():
-            outputs = self._model(**inputs)
-            embeddings = outputs.last_hidden_state[:, 0, :].squeeze()
-
-        if len(texts) == 1:
-            embeddings = embeddings.unsqueeze(0)
-
-        return embeddings.cpu().tolist()
-
-    def get_or_create_collection(self, collection_name: str):
-        """Get or create a ChromaDB collection for a repo job."""
-        return self.chroma_client.get_or_create_collection(
+        collection = self.chroma_client.get_or_create_collection(
             name=collection_name,
-            metadata={"hnsw:space": "cosine"},
+            embedding_function=self.embedding_fn
         )
 
-    def index_chunks(
-        self,
-        chunks: list[dict],
-        collection_name: str,
-        batch_size: int = 32,
-    ) -> None:
+        ids = [chunk['id'] for chunk in chunks]
+        documents = [chunk['content'] for chunk in chunks]
+        metadatas = [chunk['metadata'] for chunk in chunks]
+
+        collection.add(
+            ids=ids,
+            documents=documents,
+            metadatas=metadatas
+        )
+        print(f"✅ Indexed {len(chunks)} chunks into collection '{collection_name}'")
+
+    def search(self, query: str, collection_name: str, top_k: int = TOP_K_RESULTS) -> list[dict]:
         """
-        Index code chunks into ChromaDB.
-
-        Args:
-            chunks: List of dicts with keys:
-                    - id: unique string ID
-                    - text: code text to embed
-                    - metadata: dict with file_path, start_line, end_line, chunk_type
-            collection_name: ChromaDB collection name (use job_id for isolation)
-            batch_size: Number of chunks to embed at once
+        Search for relevant chunks in a collection.
         """
-        collection = self.get_or_create_collection(collection_name)
-        total = len(chunks)
-        print(f"🔢 Indexing {total} chunks into collection '{collection_name}'...")
-
-        for i in range(0, total, batch_size):
-            batch = chunks[i : i + batch_size]
-            texts = [c["text"] for c in batch]
-            ids = [c["id"] for c in batch]
-            metadatas = [c.get("metadata", {}) for c in batch]
-            documents = texts
-
-            embeddings = self._embed_batch(texts)
-
-            collection.upsert(
-                ids=ids,
-                embeddings=embeddings,
-                documents=documents,
-                metadatas=metadatas,
+        try:
+            collection = self.chroma_client.get_collection(
+                name=collection_name,
+                embedding_function=self.embedding_fn
             )
-
-            done = min(i + batch_size, total)
-            print(f"  ✅ Indexed {done}/{total} chunks", end="\r")
-
-        print(f"\n✅ Indexing complete — {total} chunks in '{collection_name}'")
-
-    def search(
-        self,
-        query: str,
-        collection_name: str,
-        top_k: int = TOP_K_RESULTS,
-    ) -> list[dict]:
-        """
-        Search the vector store for code chunks relevant to a query.
-
-        Args:
-            query: Natural language question or code snippet
-            collection_name: ChromaDB collection to search
-            top_k: Number of results to return
-
-        Returns:
-            List of dicts with: text, metadata, distance
-        """
-        collection = self.get_or_create_collection(collection_name)
-        query_embedding = self._embed_text(query)
+        except Exception:
+            print(f"⚠️ Collection '{collection_name}' not found.")
+            return []
 
         results = collection.query(
-            query_embeddings=[query_embedding],
-            n_results=top_k,
-            include=["documents", "metadatas", "distances"],
+            query_texts=[query],
+            n_results=top_k
         )
 
-        output = []
-        for doc, meta, dist in zip(
-            results["documents"][0],
-            results["metadatas"][0],
-            results["distances"][0],
-        ):
-            output.append({"text": doc, "metadata": meta, "distance": dist})
+        # Reformat results for easy use
+        formatted_results = []
+        if results['documents']:
+            for i in range(len(results['documents'][0])):
+                formatted_results.append({
+                    'content': results['documents'][0][i],
+                    'metadata': results['metadatas'][0][i],
+                    'distance': results['distances'][0][i] if 'distances' in results else None
+                })
+        
+        return formatted_results
 
-        return output
-
-    def delete_collection(self, collection_name: str) -> None:
-        """Remove a repo's collection from ChromaDB (cleanup)."""
-        try:
-            self.chroma_client.delete_collection(collection_name)
-            print(f"🗑️  Deleted collection: {collection_name}")
-        except Exception:
-            pass  # Collection may not exist
-
-
-# ─── Singleton ───────────────────────────────────────────────────────────────
-_embedder_instance: Optional[CodeEmbedder] = None
-
-
-def get_embedder() -> CodeEmbedder:
-    """Get or create the singleton CodeEmbedder instance."""
-    global _embedder_instance
-    if _embedder_instance is None:
-        _embedder_instance = CodeEmbedder()
-    return _embedder_instance
+def get_embedder():
+    return CodeEmbedder()

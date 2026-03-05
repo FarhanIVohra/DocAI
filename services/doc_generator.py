@@ -84,7 +84,8 @@ class DocGenerator:
         for chunk in chunks:
             meta = chunk.get("metadata", {})
             file_path = meta.get("file_path", "?")
-            text = chunk["text"]
+            # Embedder stores content in 'content', but original code used 'text'
+            text = chunk.get("content", chunk.get("text", ""))
             parts.append(f"### {file_path}\n```\n{text[:800]}\n```")
 
         return "\n\n".join(parts)

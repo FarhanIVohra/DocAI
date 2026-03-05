@@ -42,7 +42,8 @@ class RAGService:
             meta = chunk.get("metadata", {})
             file_path = meta.get("file_path", "unknown")
             start_line = meta.get("start_line", "?")
-            text = chunk["text"]
+            # Embedder stores content in 'content', but original code used 'text'
+            text = chunk.get("content", chunk.get("text", ""))
 
             entry = f"### {file_path} (line {start_line})\n```\n{text}\n```\n"
 
