@@ -1,6 +1,6 @@
 from sqlalchemy import Column, String, Enum, Integer
 import uuid
-from backend.database import Base
+from database import Base
 import enum
 
 class JobStatus(str, enum.Enum):
