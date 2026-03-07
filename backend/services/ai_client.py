@@ -1,5 +1,5 @@
 import httpx
-from backend.config import AI_SERVICE_URL
+from config import AI_SERVICE_URL
 
 class AIClient:
     def __init__(self):
@@ -19,27 +19,13 @@ class AIClient:
 
     async def generate_doc(self, job_id: str, doc_type: str, repo_meta: dict) -> dict:
         async with httpx.AsyncClient() as client:
-            response = await client.post(f"{self.base_url}/generate", json={"job_id": job_id, "type": doc_type, "repo_meta": repo_meta}, timeout=300.0)
+            response = await client.post(f"{self.base_url}/generate", json={"job_id": job_id, "type": doc_type, "repo_meta": repo_meta})
             response.raise_for_status()
             return response.json()
 
     async def chat(self, job_id: str, message: str) -> dict:
         async with httpx.AsyncClient() as client:
             response = await client.post(f"{self.base_url}/chat", json={"job_id": job_id, "message": message}, timeout=300.0)
-            response.raise_for_status()
-            return response.json()
-
-    async def generate_pr_review(self, repo_full_name: str, pr_number: int, diff_text: str) -> dict:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{self.base_url}/generate-pr-review", 
-                json={
-                    "repo_full_name": repo_full_name, 
-                    "pr_number": pr_number, 
-                    "diff_text": diff_text
-                }, 
-                timeout=120.0
-            )
             response.raise_for_status()
             return response.json()
 
