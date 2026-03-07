@@ -24,9 +24,9 @@ from services.embedder import get_embedder
 
 # ─── Config ──────────────────────────────────────────────────────────────────
 REPOS_TMP_DIR = Path(tempfile.gettempdir()) / "autodoc_repos"
-SUPPORTED_EXTENSIONS = {".py", ".js", ".ts", ".java", ".go", ".rb", ".cpp", ".c", ".md", ".txt", ".json", ".yml", ".yaml", ".sh"}
+SUPPORTED_EXTENSIONS = {".py", ".js", ".ts", ".java", ".go", ".rb", ".cpp", ".c"}
 MAX_FILE_SIZE_BYTES = 100_000   # Skip files larger than 100KB
-MAX_FILES_PER_REPO = 300        # Cap to avoid huge repos taking forever
+MAX_FILES_PER_REPO = 200        # Cap to avoid huge repos taking forever
 
 
 class RepoIndexer:
@@ -56,7 +56,7 @@ class RepoIndexer:
         if clone_path.exists():
             shutil.rmtree(clone_path)
 
-        print(f"Cloning repo: {repo_url}")
+        print(f"📥 Cloning repo: {repo_url}")
         result = subprocess.run(
             ["git", "clone", "--depth", "1", repo_url, str(clone_path)],
             capture_output=True,
@@ -67,7 +67,7 @@ class RepoIndexer:
         if result.returncode != 0:
             raise RuntimeError(f"Git clone failed: {result.stderr}")
 
-        print(f"Cloned to {clone_path}")
+        print(f"✅ Cloned to {clone_path}")
         return clone_path
 
     # ── File Discovery ────────────────────────────────────────────────────────
@@ -280,7 +280,7 @@ class RepoIndexer:
         """
         # Discover files
         files = self._discover_files(repo_path)
-        print(f"Found {len(files)} code files to index at {repo_path}")
+        print(f"📂 Found {len(files)} code files to index at {repo_path}")
         if update_status_callback:
             update_status_callback(20)
 
@@ -294,7 +294,7 @@ class RepoIndexer:
                 progress = 20 + int((i / len(files)) * 40)
                 update_status_callback(progress)
 
-        print(f"Extracted {len(all_chunks)} code chunks from {len(files)} files")
+        print(f"🔀 Extracted {len(all_chunks)} code chunks from {len(files)} files")
         if update_status_callback:
             update_status_callback(60)
 
@@ -334,4 +334,4 @@ class RepoIndexer:
         repo_path = REPOS_TMP_DIR / job_id
         if repo_path.exists():
             shutil.rmtree(repo_path)
-            print(f"Cleaned up repo: {job_id}")
+            print(f"🗑️  Cleaned up repo: {job_id}")

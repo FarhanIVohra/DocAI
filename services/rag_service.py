@@ -18,7 +18,7 @@ from services.embedder import get_embedder
 from services.llm_service import get_llm
 
 CHAT_PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "chat_prompt.txt"
-MAX_CONTEXT_CHUNKS = 10
+MAX_CONTEXT_CHUNKS = 5
 MAX_CONTEXT_CHARS = 3000   # Cap total context to avoid exceeding model context window
 
 
@@ -145,37 +145,13 @@ class RAGService:
             history = []
 
         # Incorporate history into the question for better context retrieval
-        # CRITICAL: Strip "Sources" from history to avoid biasing search towards same files
         history_text = ""
         if history:
             recent = history[-4:]  # Last 2 exchanges
-            cleaned_history = []
-            for h in recent:
-                content = h['content']
-                if h['role'] == 'assistant':
-                    # Strip everything from "**Sources:**" onwards
-                    if "**Sources:**" in content:
-                        content = content.split("**Sources:**")[0].strip()
-                cleaned_history.append(f"{'User' if h['role'] == 'user' else 'Assistant'}: {content}")
-            
-            history_text = "\n".join(cleaned_history)
-            
-            # Use LLM to generate a standalone search query if history exists
-            # This is "Query Rewriting" to ensure the search is focused
-            standalone_prompt = (
-                f"Given the following conversation history and a follow-up question, "
-                f"rephrase the follow-up question to be a standalone search query for a codebase.\n\n"
-                f"History:\n{history_text}\n\n"
-                f"Follow-up: {question}\n\n"
-                f"Standalone Query:"
+            history_text = "\n".join(
+                f"{'User' if h['role'] == 'user' else 'Assistant'}: {h['content']}"
+                for h in recent
             )
-            try:
-                # Use a small max_tokens for the query rewrite
-                search_query = self.llm.generate(standalone_prompt, "You are a helpful assistant that rephrases questions for search.", max_tokens=100)
-                question = search_query.strip()
-                print(f"DEBUG: Rewritten search query: {question}")
-            except Exception:
-                # Fallback to simple concatenation if rewrite fails
-                question = f"{history_text}\n\n{question}"
+            question = f"[Conversation so far:\n{history_text}\n]\n\nNew question: {question}"
 
         return self.query(question, job_id)

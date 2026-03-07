@@ -25,12 +25,7 @@ export function MermaidDiagram({ chart }: MermaidDiagramProps) {
       if (!chart) return;
       try {
         setLoading(true);
-        const cleanChart = chart
-          .replace(/```mermaid/g, '')
-          .replace(/```/g, '')
-          .trim();
-          
-        const { svg: renderedSvg } = await mermaid.render(`mermaid-${Math.random().toString(36).substr(2, 9)}`, cleanChart);
+        const { svg: renderedSvg } = await mermaid.render(`mermaid-${Math.random().toString(36).substr(2, 9)}`, chart);
         setSvg(renderedSvg);
       } catch (err) {
         console.error('Failed to render mermaid chart:', err);

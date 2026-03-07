@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backend.database import engine, Base
-from backend.routers import repos, docs, chat, export, github
+from database import engine, Base
+from routers import repos, docs, chat, export
 
 Base.metadata.create_all(bind=engine)
 
@@ -23,7 +23,6 @@ app.include_router(repos.router, prefix="/repos", tags=["Repositories"])
 app.include_router(docs.router, prefix="/docs", tags=["Documentation"])
 app.include_router(chat.router, prefix="/chat", tags=["Chat"])
 app.include_router(export.router, prefix="/export", tags=["Export"])
-app.include_router(github.router, prefix="/github", tags=["GitHub Webhooks"])
 
 @app.get("/", tags=["Health"])
 async def read_root():
