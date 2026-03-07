@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from models import job as models
+from backend.models import job as models
 
 class JobService:
     def create_job(self, db: Session, repo_url: str) -> models.Job:

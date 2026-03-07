@@ -1,0 +1,10 @@
+INFO:     Will watch for changes in these directories: ['D:\\HACKATHONS\\DigitalOcean\\ai']
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [32304] using WatchFiles
+INFO:     Started server process [20836]
+WARNING:  WatchFiles detected changes in 'verify_500.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for connections to close. (CTRL+C to force quit)
+INFO:     Finished server process [20836]
+INFO:     Started server process [7712]
+WARNING:  WatchFiles detected changes in 'backend\services\github_service.py'. Reloading...
