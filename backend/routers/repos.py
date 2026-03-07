@@ -1,23 +1,26 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from schemas import repo_schema as schemas
-from database import get_db
-from services.job_service import job_service
-from services.ai_client import ai_client
+from backend.schemas import repo_schema as schemas
+from backend.database import get_db
+from backend.services.job_service import job_service
+from backend.services.ai_client import ai_client
 
 router = APIRouter()
 
 @router.post("/submit", response_model=schemas.RepoSubmitResponse)
 async def submit_repo(request: schemas.RepoSubmitRequest, db: Session = Depends(get_db)):
-    job = job_service.create_job(db, str(request.repo_url))
     try:
+        job = job_service.create_job(db, str(request.repo_url))
         ai_response = await ai_client.index_repo(str(request.repo_url), job_id=str(job.id))
         job_service.update_job_status(db, job.id, "processing")
         return {"job_id": job.id}
     except Exception as e:
-        job_service.update_job_status(db, job.id, "failed")
-        raise HTTPException(status_code=500, detail=f"AI service error: {e}")
-    return {"job_id": job.id}
+        import traceback
+        traceback.print_exc()
+        # If job was created, we can try to mark it as failed
+        # But if create_job itself failed, 'job' is not defined
+        print(f"ERROR in submit_repo: {e}")
+        raise HTTPException(status_code=500, detail=f"Submission error: {e}")
 
 @router.get("/status/{job_id}", response_model=schemas.JobStatusResponse)
 async def get_status(job_id: str, db: Session = Depends(get_db)):

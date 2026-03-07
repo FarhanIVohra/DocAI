@@ -1,0 +1,11 @@
+DEBUG: Job 016aa67b-af1a-4631-9b51-86313b1029d3 missing metadata or not in DB. Falling back to indexer metadata.
+[Embedder] Using fast model: all-MiniLM-L6-v2
+[LLM] GradientLLM ready — model: llama3.3-70b-instruct
+[Embedder] Using fast model: all-MiniLM-L6-v2
+DEBUG: Cached api-docs not found, generating on the fly...
+Generating API reference documentation...
+[Embedder] Loading ONNX embedding model: all-MiniLM-L6-v2
+[Embedder] Embedding model loaded.
+[Embedder] Collection 'repo_016aa67b-af1a-4631-9b51-86313b1029d3' not found.
+Done generating api-docs
+INFO:     127.0.0.1:62948 - "POST /api/ai/generate HTTP/1.1" 200 OK

@@ -6,5 +6,8 @@ class ChatMessageRequest(BaseModel):
     message: str
 
 class ChatMessageResponse(BaseModel):
-    answer: str
+    id: str
+    role: str = "assistant"
+    content: str
     sources: list[str] | None = None
+    timestamp: str

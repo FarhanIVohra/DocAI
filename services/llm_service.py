@@ -59,7 +59,7 @@ class GradientLLM:
                         "your_gradient_model_access_key_here" in GRADIENT_MODEL_ACCESS_KEY
 
         if self._is_mock:
-            print("⚠️  GRADIENT_MODEL_ACCESS_KEY not set or is placeholder — using mock responses.")
+            print("[LLM] GRADIENT_MODEL_ACCESS_KEY not set or is placeholder — using mock responses.")
             print("   To enable real AI, set a valid key in your .env file.")
             return
 
@@ -70,7 +70,7 @@ class GradientLLM:
             timeout=TIMEOUT_SECONDS,
             max_retries=0,
         )
-        print(f"✅ GradientLLM ready — model: {self.model}")
+        print(f"[LLM] GradientLLM ready — model: {self.model}")
 
     def _mock_response(self, user_message: str, system_prompt: str = "") -> str:
         if "diagram" in system_prompt.lower():
@@ -134,20 +134,20 @@ class GradientLLM:
                 return response.choices[0].message.content
 
             except APITimeoutError:
-                print(f"  ⏱️  Timeout (attempt {attempt}/{MAX_RETRIES})")
+                print(f"  [LLM] Timeout (attempt {attempt}/{MAX_RETRIES})")
                 last_error = "Timeout"
             except APIError as e:
-                print(f"  ❌ API error: {e.status_code} — {e.message}")
+                print(f"  [LLM] API error: {e.status_code} — {e.message}")
                 if e.status_code in (400, 401, 403):
                     raise  # Not retryable
                 last_error = str(e)
             except Exception as e:
-                print(f"  ❌ Unexpected error: {e}")
+                print(f"  [LLM] Unexpected error: {e}")
                 last_error = str(e)
 
             if attempt < MAX_RETRIES:
                 wait = RETRY_DELAY * attempt
-                print(f"  🔄 Retrying in {wait:.0f}s...")
+                print(f"  [LLM] Retrying in {wait:.0f}s...")
                 time.sleep(wait)
 
         raise RuntimeError(f"Gradient AI failed after {MAX_RETRIES} attempts: {last_error}")
@@ -179,7 +179,7 @@ class GradientLLM:
             models = self.client.models.list()
             return [m.id for m in models.data]
         except Exception as e:
-            print(f"  ❌ Could not fetch models: {e}")
+            print(f"  [LLM] Could not fetch models: {e}")
             return []
 
 

@@ -24,7 +24,7 @@ class CodeEmbedder:
     """
 
     def __init__(self):
-        print(f"📡 CodeEmbedder using fast model: {FAST_MODEL}")
+        print(f"[Embedder] Using fast model: {FAST_MODEL}")
         
         # ChromaDB persistent client
         self.chroma_client = chromadb.PersistentClient(
@@ -39,14 +39,14 @@ class CodeEmbedder:
     @property
     def embedding_fn(self):
         if self._embedding_fn is None:
-            print(f"📦 Loading ONNX embedding model: {FAST_MODEL}")
+            print(f"[Embedder] Loading ONNX embedding model: {FAST_MODEL}")
             try:
                 # ONNX version is more robust and faster in restricted environments
                 self._embedding_fn = embedding_functions.ONNXMiniLM_L6_V2()
             except Exception as e:
-                print(f"⚠️ Error loading ONNX model: {e}. Falling back to DefaultEmbeddingFunction.")
+                print(f"[Embedder] Error loading ONNX model: {e}. Falling back to DefaultEmbeddingFunction.")
                 self._embedding_fn = embedding_functions.DefaultEmbeddingFunction()
-            print("✅ Embedding model loaded.")
+            print("[Embedder] Embedding model loaded.")
         return self._embedding_fn
 
     def index_chunks(self, chunks: list[dict], collection_name: str):
@@ -67,7 +67,7 @@ class CodeEmbedder:
             documents=documents,
             metadatas=metadatas
         )
-        print(f"✅ Indexed {len(chunks)} chunks into collection '{collection_name}'")
+        print(f"[Embedder] Indexed {len(chunks)} chunks into collection '{collection_name}'")
 
     def search(self, query: str, collection_name: str, top_k: int = TOP_K_RESULTS) -> list[dict]:
         """
@@ -79,7 +79,7 @@ class CodeEmbedder:
                 embedding_function=self.embedding_fn
             )
         except Exception:
-            print(f"⚠️ Collection '{collection_name}' not found.")
+            print(f"[Embedder] Collection '{collection_name}' not found.")
             return []
 
         results = collection.query(

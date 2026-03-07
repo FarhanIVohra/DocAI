@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from schemas import doc_schema as schemas
-from database import get_db
-from services.ai_client import ai_client
-from services import job_service
+from backend.schemas import doc_schema as schemas
+from backend.database import get_db
+from backend.services.ai_client import ai_client
+from backend.services.job_service import job_service
 import bleach
 
 router = APIRouter()
@@ -21,7 +21,12 @@ async def generate_doc(request: schemas.DocGenerateRequest, db: Session = Depend
         }
         
         ai_response = await ai_client.generate_doc(str(request.job_id), request.type, repo_meta)
-        sanitized_content = bleach.clean(ai_response['content'])
+        content = ai_response['content']
+        # Skip bleach for diagrams to avoid escaping '>' and other Mermaid symbols
+        if request.type in ["architecture", "diagram"]:
+            return {"content": content}
+            
+        sanitized_content = bleach.clean(content)
         return {"content": sanitized_content}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI service error: {e}")

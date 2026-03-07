@@ -1,7 +1,7 @@
 from sqlalchemy import Column, ForeignKey, String
 from sqlalchemy.orm import relationship
 import uuid
-from database import Base
+from backend.database import Base
 
 class Session(Base):
     __tablename__ = "sessions"

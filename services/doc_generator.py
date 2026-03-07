@@ -179,11 +179,9 @@ class DocGenerator:
         system = self._load_prompt("diagram")
         raw = self.llm.generate(user_message, system, max_tokens=600)
 
-        # Ensure output is a valid mermaid block
-        if "```mermaid" not in raw:
-            raw = f"```mermaid\n{raw}\n```"
-
-        return raw
+        # Ensure output is clean mermaid DSL without markdown fences
+        clean = raw.replace("```mermaid", "").replace("```", "").strip()
+        return clean
 
     # ─── CHANGELOG ────────────────────────────────────────────────────────────
 
@@ -322,7 +320,7 @@ class DocGenerator:
                 f"Must be one of: {list(dispatch.keys())}"
             )
 
-        print(f"📝 Generating {DOC_TYPE_CONFIG[doc_type]['description']}...")
+        print(f"Generating {DOC_TYPE_CONFIG[doc_type]['description']}...")
         result = dispatch[doc_type](job_id, repo_meta)
-        print(f"✅ Done generating {doc_type}")
+        print(f"Done generating {doc_type}")
         return result

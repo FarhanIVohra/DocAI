@@ -1,6 +1,6 @@
 from pydantic import BaseModel, HttpUrl
 import uuid
-from models.job import JobStatus
+from backend.models.job import JobStatus
 
 class RepoSubmitRequest(BaseModel):
     repo_url: HttpUrl

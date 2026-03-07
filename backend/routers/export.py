@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
-from database import get_db
-from services.export_service import export_service
-from services.ai_client import ai_client
+from backend.database import get_db
+from backend.services.export_service import export_service
+from backend.services.ai_client import ai_client
 
 router = APIRouter()
 
