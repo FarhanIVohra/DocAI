@@ -1,8 +1,11 @@
-Webhook received: PR opened on fastapi/fastapi #12822
-INFO:     127.0.0.1:59295 - "POST /github/webhook HTTP/1.1" 200 OK
-DEBUG: Successfully fetched diff for fastapi/fastapi PR #12822
-Triggering AI PR Review for fastapi/fastapi #12822...
-WARNING: GITHUB_TOKEN not set, cannot post comment. Logging instead:
-Error during AI PR review: 'charmap' codec can't encode character '\U0001f916' in position 51: character maps to <undefined>
-INFO:     140.82.115.104:0 - "POST /github/webhook HTTP/1.1" 200 OK
-INFO:     140.82.115.51:0 - "POST /github/webhook HTTP/1.1" 200 OK
+ Webhook received: PR opened on FarhanIVohra/DocAI #1
+INFO:     127.0.0.1:63796 - "POST /github/webhook HTTP/1.1" 200 OK
+DEBUG: Successfully fetched diff for FarhanIVohra/DocAI PR #1
+Triggering AI PR Review for FarhanIVohra/DocAI #1...
+DEBUG: Successfully posted comment to FarhanIVohra/DocAI PR #1
+ Webhook received: PR opened on FarhanIVohra/DocAI #4
+INFO:     127.0.0.1:60203 - "POST /github/webhook HTTP/1.1" 200 OK
+DEBUG: Successfully fetched diff for FarhanIVohra/DocAI PR #4
+Triggering AI PR Review for FarhanIVohra/DocAI #4...
+DEBUG: Successfully posted comment to FarhanIVohra/DocAI PR #4
+ 

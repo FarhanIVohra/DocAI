@@ -18,7 +18,8 @@ from services.embedder import get_embedder
 from services.llm_service import get_llm
 
 CHAT_PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "chat_prompt.txt"
-MAX_CONTEXT_CHUNKS = 10
+MAX_RETRIEVED_CHUNKS = 30
+MAX_CONTEXT_CHUNKS = 8
 MAX_CONTEXT_CHARS = 3000   # Cap total context to avoid exceeding model context window
 
 
@@ -66,7 +67,40 @@ class RAGService:
             sources.append(f"{file_path}:L{start_line}-{end_line}")
         return sources
 
-    def query(self, question: str, job_id: str) -> dict:
+    def _rank_chunks(self, query: str, chunks: list[dict]) -> list[dict]:
+        """
+        Re-rank retrieved chunks using simple Term Frequency / Keyword Density 
+        combined with original vector distance (if semantic search).
+        """
+        query_terms = set(word.lower() for word in query.replace('"', '').split() if len(word) > 2)
+        if not query_terms:
+            return chunks
+
+        scored_chunks = []
+        for chunk in chunks:
+            text = chunk.get("content", "").lower()
+            
+            # 1. Keyword overlap score (number of unique query terms present)
+            overlap = sum(1 for term in query_terms if term in text)
+            
+            # 2. Keyword frequency score (how many times they appear)
+            frequency = sum(text.count(term) for term in query_terms)
+            
+            # Combine scores (simple heuristic)
+            # Original distance is lower-is-better (for cosine/L2). 
+            # We invert it roughly, assuming standard ranges, or simply sort by our new score if it's high enough.
+            base_distance_penalty = chunk.get("distance", 1.0) or 1.0
+            
+            # Final score: Higher is better
+            score = (overlap * 5.0) + (frequency * 1.0) - (base_distance_penalty * 10.0)
+            
+            scored_chunks.append((score, chunk))
+            
+        # Sort descending by score
+        scored_chunks.sort(key=lambda x: x[0], reverse=True)
+        return [c[1] for c in scored_chunks]
+
+    def query(self, question: str, job_id: str, search_type: str = "SEMANTIC") -> dict:
         """
         Answer a question about a repository using RAG.
 
@@ -83,11 +117,25 @@ class RAGService:
         collection_name = f"repo_{job_id}"
 
         # Step 1: Retrieve relevant code chunks
-        chunks = self.embedder.search(
-            query=question,
-            collection_name=collection_name,
-            top_k=MAX_CONTEXT_CHUNKS,
-        )
+        if search_type == "KEYWORD":
+            # Keyword search ignores vector embeddings and looks for exact strings
+            print(f"DEBUG: Executing KEYWORD search for: {question}")
+            chunks = self.embedder.keyword_search(
+                query=question,
+                collection_name=collection_name,
+                top_k=MAX_CONTEXT_CHUNKS
+            )
+        else:
+            # Semantic search fetches many candidates then re-ranks
+            print(f"DEBUG: Executing SEMANTIC search for: {question}")
+            chunks = self.embedder.search(
+                query=question,
+                collection_name=collection_name,
+                top_k=MAX_RETRIEVED_CHUNKS,
+            )
+            # Re-rank based on keyword overlap
+            if chunks:
+                chunks = self._rank_chunks(question, chunks)[:MAX_CONTEXT_CHUNKS]
 
         if not chunks:
             return {
@@ -163,19 +211,45 @@ class RAGService:
             # Use LLM to generate a standalone search query if history exists
             # This is "Query Rewriting" to ensure the search is focused
             standalone_prompt = (
-                f"Given the following conversation history and a follow-up question, "
-                f"rephrase the follow-up question to be a standalone search query for a codebase.\n\n"
+                f"Given the following conversation history and a follow-up user message, "
+                f"rephrase the follow-up message to be a standalone search query for a codebase.\n"
+                f"Crucially, determine the SEARCH_TYPE. If the user is asking for a specific function, variable, "
+                f"or exact string (e.g., 'Where is auth_token defined?'), output KEYWORD.\n"
+                f"If the user is asking a conceptual question (e.g., 'How does the auth system work?'), output SEMANTIC.\n\n"
+                f"IMPORTANT: If the type is KEYWORD, the 'query' field MUST contain ONLY the exact substring, class name, or variable name to search for (e.g., just 'auth_token' or 'HTTPException'), with NO conversational words.\n"
+                f"If the type is SEMANTIC, the 'query' should be a natural language question.\n\n"
                 f"History:\n{history_text}\n\n"
                 f"Follow-up: {question}\n\n"
-                f"Standalone Query:"
+                f"Format your response EXACTLY as a JSON object with 'query' and 'type' keys. Example:\n"
+                f'{{"query": "HTTPException", "type": "KEYWORD"}}'
             )
             try:
                 # Use a small max_tokens for the query rewrite
-                search_query = self.llm.generate(standalone_prompt, "You are a helpful assistant that rephrases questions for search.", max_tokens=100)
-                question = search_query.strip()
-                print(f"DEBUG: Rewritten search query: {question}")
-            except Exception:
-                # Fallback to simple concatenation if rewrite fails
+                raw_response = self.llm.generate(standalone_prompt, "You are a helpful assistant that rephrases questions for search. Output ONLY valid JSON.", max_tokens=150)
+                print(f"DEBUG: Raw LLM Router Response: {raw_response}")
+                import json
+                import re
+                
+                # Extract JSON if markdown wrapped
+                json_str = raw_response.strip()
+                match = re.search(r'\{.*\}', json_str, re.DOTALL)
+                if match:
+                    json_str = match.group(0)
+                
+                data = json.loads(json_str)
+                search_query = data.get("query", question)
+                search_type = data.get("type", "SEMANTIC").upper()
+                
+                if search_type not in ["KEYWORD", "SEMANTIC"]:
+                    search_type = "SEMANTIC"
+                    
+                print(f"DEBUG: Query Router - Type: {search_type}, Query: {search_query}")
+                return self.query(search_query, job_id, search_type=search_type)
+                
+            except Exception as e:
+                print(f"DEBUG: Query Router failed ({e}), falling back to simple concatenation")
+                # Fallback to simple concatenation if rewrite/JSON fails
                 question = f"{history_text}\n\n{question}"
+                return self.query(question, job_id, search_type="SEMANTIC")
 
-        return self.query(question, job_id)
+        return self.query(question, job_id, search_type="SEMANTIC")

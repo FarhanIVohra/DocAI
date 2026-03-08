@@ -32,7 +32,14 @@ class GitHubService:
         """Post a comment to a specific PR."""
         if not GITHUB_TOKEN:
             print("WARNING: GITHUB_TOKEN not set, cannot post comment. Logging instead:")
-            print(f"\n--- PR COMMENT ({repo_full_name} #{pr_number}) ---\n{comment_body}\n--- END COMMENT ---\n")
+            try:
+                # Safe print for Windows console
+                print(f"\n--- PR COMMENT ({repo_full_name} #{pr_number}) ---")
+                import sys
+                sys.stdout.buffer.write(comment_body.encode('utf-8'))
+                print("\n--- END COMMENT ---\n")
+            except Exception:
+                pass
             return True
 
         url = f"https://api.github.com/repos/{repo_full_name}/issues/{pr_number}/comments"

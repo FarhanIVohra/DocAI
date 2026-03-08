@@ -1,0 +1,25 @@
+Testing on job test-id
+[Embedder] Using fast model: all-MiniLM-L6-v2
+[LLM] GradientLLM ready ù model: llama3.3-70b-instruct
+
+--- TEST 1: SEMANTIC SEARCH ---
+DEBUG: Raw LLM Router Response: {"query": "How does this application handle exceptions or errors?", "type": "SEMANTIC"}
+DEBUG: Query Router - Type: SEMANTIC, Query: How does this application handle exceptions or errors?
+DEBUG: Executing SEMANTIC search for: How does this application handle exceptions or errors?
+[Embedder] Loading ONNX embedding model: all-MiniLM-L6-v2
+[Embedder] Embedding model loaded.
+The provided context does not contain explicit information on how the application handles exceptions or errors. There is no code snippet that shows try-except blocks or error handling mechanisms. 
+
+Ho...
+Chunks used: 8
+
+--- TEST 2: KEYWORD SEARCH ---
+DEBUG: Raw LLM Router Response: {"query": "process_item", "type": "KEYWORD"}
+DEBUG: Query Router - Type: KEYWORD, Query: process_item
+DEBUG: Executing KEYWORD search for: process_item
+The `process_item` function is defined in `tutorial008b_py310.py` (line 1) and takes an item that can be either an integer or a string. It simply prints the item.
+
+**Example usage:**
+```python
+process...
+Chunks used: 3

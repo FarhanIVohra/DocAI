@@ -227,7 +227,13 @@ async def generate_pr_review(request: PRReviewRequest):
         return {"content": content}
     except Exception as e:
         import traceback
-        traceback.print_exc()
+        import sys
+        # Print safely to avoid charmap codec errors on Windows
+        try:
+            print(f"Error in generate_pr_review: {e}")
+            sys.stderr.buffer.write(traceback.format_exc().encode('utf-8'))
+        except Exception:
+            pass
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/ai/chat")

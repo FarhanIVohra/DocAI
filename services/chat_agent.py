@@ -14,6 +14,8 @@ Usage:
 
 from dataclasses import dataclass, field
 from services.rag_service import RAGService
+from services.llm_service import get_llm
+import asyncio
 
 MAX_HISTORY_TURNS = 6   # Keep last 3 exchanges (user + assistant each)
 
@@ -23,16 +25,50 @@ class ChatSession:
     """Represents a single conversation session with a repo."""
     job_id: str
     history: list[dict] = field(default_factory=list)
+    running_summary: str = ""
 
     def add_turn(self, role: str, content: str) -> None:
-        """Add a message to history, pruning if too long."""
+        """Add a message to history, scheduling a background summary if too long."""
         self.history.append({"role": role, "content": content})
-        # Keep only the last MAX_HISTORY_TURNS messages
-        if len(self.history) > MAX_HISTORY_TURNS:
-            self.history = self.history[-MAX_HISTORY_TURNS:]
+        
+        # When history exceeds our max turns, we need to compress the oldest exchange
+        if len(self.history) > MAX_HISTORY_TURNS + 2:  # Allow it to go +2 before trimming
+            # Extract the oldest exchange (user + assistant) that we're about to drop
+            oldest_turns = self.history[:2]
+            self.history = self.history[2:]
+            
+            # Fire and forget background task to update the running summary
+            # We use a thread because ChatAgent runs in a synchronous FastAPI endpoint
+            import threading
+            threading.Thread(target=self._run_summary_sync, args=(oldest_turns,), daemon=True).start()
+
+    def _run_summary_sync(self, dropped_turns: list[dict]) -> None:
+        """Synchronous wrapper to run the async update."""
+        asyncio.run(self._update_summary(dropped_turns))
+
+    async def _update_summary(self, dropped_turns: list[dict]) -> None:
+        """Background task to compress dropped turns into the running summary."""
+        try:
+            llm = get_llm()
+            dropped_text = "\n".join([f"{t['role'].capitalize()}: {t['content']}" for t in dropped_turns])
+            
+            prompt = (
+                f"You are an AI assistant tasked with maintaining a concise running summary of a conversation.\n"
+                f"Previous Summary:\n{self.running_summary or 'None'}\n\n"
+                f"New conversation turns to incorporate:\n{dropped_text}\n\n"
+                f"Write a brief, updated summary that captures the core context, intent, and any important code references. Keep it very concise."
+            )
+            
+            new_summary = await asyncio.to_thread(llm.generate, prompt, "Summarizer", max_tokens=200)
+            self.running_summary = new_summary.strip()
+            print(f"DEBUG: Updated Running Summary: {self.running_summary[:100]}...")
+            
+        except Exception as e:
+            print(f"Error generating chat summary: {e}")
 
     def clear(self) -> None:
         self.history.clear()
+        self.running_summary = ""
 
 
 class ChatAgent:
@@ -65,11 +101,18 @@ class ChatAgent:
         # Add user message to history
         self.session.add_turn("user", user_message)
 
+        # Build context string with history and the running summary
+        history_for_rag = list(self.session.history[:-1])
+        if self.session.running_summary:
+            # Inject the running summary as a seamless 'system' context block to guide RAG
+            summary_msg = f"[Prior Conversation Summary: {self.session.running_summary}]"
+            history_for_rag.insert(0, {"role": "system", "content": summary_msg})
+
         # Get grounded answer from RAG with conversation history
         result = self.rag.query_with_history(
             question=user_message,
             job_id=self.session.job_id,
-            history=self.session.history[:-1],  # Exclude current message
+            history=history_for_rag,  # Exclude current message but include summary
         )
 
         answer = result["answer"]

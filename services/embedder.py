@@ -99,5 +99,36 @@ class CodeEmbedder:
         
         return formatted_results
 
+    def keyword_search(self, query: str, collection_name: str, top_k: int = TOP_K_RESULTS) -> list[dict]:
+        """
+        Search for exact substring matches in a collection bypassing vector embeddings.
+        Uses ChromaDB's $contains document filter.
+        """
+        try:
+            collection = self.chroma_client.get_collection(
+                name=collection_name,
+                embedding_function=self.embedding_fn
+            )
+        except Exception:
+            print(f"[Embedder] Collection '{collection_name}' not found.")
+            return []
+
+        # Use .get() with where_document instead of .query()
+        results = collection.get(
+            where_document={"$contains": query},
+            limit=top_k
+        )
+
+        formatted_results = []
+        if results and results.get('documents'):
+            for i in range(len(results['documents'])):
+                formatted_results.append({
+                    'content': results['documents'][i],
+                    'metadata': results['metadatas'][i],
+                    'distance': 0.0  # Exact match
+                })
+        
+        return formatted_results
+
 def get_embedder():
     return CodeEmbedder()
