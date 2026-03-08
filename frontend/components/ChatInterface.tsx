@@ -46,7 +46,14 @@ export function ChatInterface({ jobId }: ChatInterfaceProps) {
       const response = await api.sendMessage(jobId, input);
       addMessage(response);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to send message');
+      const errorMessage = err.message || 'Failed to send message';
+      toast.error(errorMessage);
+      addMessage({
+        id: Date.now().toString(),
+        role: 'assistant' as const,
+        content: `⚠️ **Server Error:** Could not generate a response. \n\n${errorMessage}`,
+        timestamp: new Date().toISOString(),
+      });
     } finally {
       setLoading(false);
       console.log('Loading state after response:', loading);
@@ -69,21 +76,18 @@ export function ChatInterface({ jobId }: ChatInterfaceProps) {
               className={`flex gap-4 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`flex max-w-[80%] gap-3 ${
-                  msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'
-                }`}
+                className={`flex max-w-[80%] gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'
+                  }`}
               >
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  msg.role === 'user' ? 'bg-blue-600' : 'bg-zinc-800'
-                }`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${msg.role === 'user' ? 'bg-blue-600' : 'bg-zinc-800'
+                  }`}>
                   {msg.role === 'user' ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5 text-blue-400" />}
                 </div>
                 <div className="space-y-2">
-                  <div className={`p-4 rounded-2xl ${
-                    msg.role === 'user' 
-                      ? 'bg-blue-600 text-white rounded-tr-none' 
-                      : 'bg-zinc-800 text-zinc-200 rounded-tl-none'
-                  }`}>
+                  <div className={`p-4 rounded-2xl ${msg.role === 'user'
+                    ? 'bg-blue-600 text-white rounded-tr-none'
+                    : 'bg-zinc-800 text-zinc-200 rounded-tl-none'
+                    }`}>
                     <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                   </div>
                   {msg.sources && msg.sources.length > 0 && (

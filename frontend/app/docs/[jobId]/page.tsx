@@ -2,9 +2,9 @@
 
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  Layout, Code, FileText, History, UserPlus, 
-  ShieldCheck, MessageSquare, Download, Loader2 
+import {
+  Layout, Code, FileText, History, UserPlus,
+  ShieldCheck, MessageSquare, Download, Loader2
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { JobStatusBar } from '@/components/JobStatusBar';
@@ -24,10 +24,10 @@ interface PageProps {
 export default function DocsPage({ params }: PageProps) {
   const { jobId } = use(params);
   const router = useRouter();
-  const { 
-    status, progress, docs, setStatus, setProgress, setDoc, setJobId 
+  const {
+    status, progress, docs, setStatus, setProgress, setDoc, setJobId
   } = useJobStore();
-  
+
   const [activeTab, setActiveTab] = useState('readme');
   const [docLoading, setDocLoading] = useState(false);
 
@@ -64,7 +64,7 @@ export default function DocsPage({ params }: PageProps) {
 
   const fetchDoc = async (type: string) => {
     if (docs[type] || status !== 'ready') return;
-    
+
     setDocLoading(true);
     try {
       const { content } = await api.generateDoc(jobId, type);
@@ -94,7 +94,7 @@ export default function DocsPage({ params }: PageProps) {
             <p className="text-zinc-500">Job ID: <code className="text-blue-500">{jobId}</code></p>
           </div>
           <div className="flex gap-3">
-            <button 
+            <button
               onClick={() => router.push(`/chat/${jobId}`)}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-600/20 transition-all"
             >
@@ -130,7 +130,21 @@ export default function DocsPage({ params }: PageProps) {
           </TabsList>
 
           <div className="relative min-h-[500px]">
-            {status !== 'ready' ? (
+            {status === 'failed' ? (
+              <div className="flex flex-col items-center justify-center p-16 bg-red-500/5 border border-red-500/20 rounded-xl mt-4">
+                <ShieldCheck className="w-12 h-12 text-red-400 mb-4" />
+                <h3 className="text-xl font-bold text-red-500 mb-2">Analysis Failed</h3>
+                <p className="text-red-400/80 text-center max-w-md mb-6">
+                  There was an error processing this repository. It may be too large, private, or the AI service may have timed out.
+                </p>
+                <button
+                  onClick={() => router.push('/')}
+                  className="px-6 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-colors border border-red-500/30"
+                >
+                  Return Home
+                </button>
+              </div>
+            ) : status !== 'ready' ? (
               <div className="space-y-4">
                 <Skeleton className="h-12 w-3/4 bg-white/5" />
                 <Skeleton className="h-[400px] w-full bg-white/5" />

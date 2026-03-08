@@ -45,7 +45,7 @@ export const api = {
     `${API_BASE_URL}/export/${type}/${job_id}`,
 
   createPR: (job_id: string) =>
-    request<{ pr_url: string }>(`/export/pr/${job_id}`, {
+    request<{ pr_url?: string; fallback_data?: string }>(`/export/pr/${job_id}`, {
       method: 'POST',
     }),
 };

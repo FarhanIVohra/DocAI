@@ -20,15 +20,31 @@ export function ExportPanel({ jobId }: ExportPanelProps) {
     window.open(url, '_blank');
   };
 
-  const handleCreatePR = async () => {
+  const handleCreateGist = async () => {
     setPrLoading(true);
     try {
-      const { pr_url } = await api.createPR(jobId);
-      toast.success('Pull request created successfully!');
-      setPrSuccess(true);
-      setTimeout(() => window.open(pr_url, '_blank'), 1500);
+      const result = await api.createPR(jobId);
+
+      if (result.pr_url) {
+        toast.success('GitHub Gist created successfully!');
+        setPrSuccess(true);
+        setTimeout(() => window.open(result.pr_url, '_blank'), 1500);
+      } else if (result.fallback_data) {
+        // Fallback: The Gist API failed (likely due to token scopes), so we download the raw data
+        toast.warning('Token lacks Gist permissions. Downloading raw data instead.');
+        const blob = new Blob([result.fallback_data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `autodoc_export_${jobId}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setPrSuccess(true);
+      }
     } catch (err: any) {
-      toast.error(err.message || 'Failed to create pull request');
+      toast.error(err.message || 'Failed to create Gist');
     } finally {
       setPrLoading(false);
     }
@@ -47,7 +63,7 @@ export function ExportPanel({ jobId }: ExportPanelProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button 
+          <Button
             onClick={() => handleDownload('md')}
             className="w-full bg-blue-600 hover:bg-blue-500 text-white transition-all"
           >
@@ -67,7 +83,7 @@ export function ExportPanel({ jobId }: ExportPanelProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button 
+          <Button
             onClick={() => handleDownload('pdf')}
             className="w-full bg-purple-600 hover:bg-purple-500 text-white transition-all"
           >
@@ -80,31 +96,30 @@ export function ExportPanel({ jobId }: ExportPanelProps) {
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
             <GitPullRequest className="w-5 h-5 text-green-500" />
-            GitHub PR
+            GitHub Gist
           </CardTitle>
           <CardDescription className="text-zinc-500">
-            Automatically create a Pull Request with the generated README.md.
+            Automatically create a public GitHub Gist with the generated documents.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button 
-            onClick={handleCreatePR}
+          <Button
+            onClick={handleCreateGist}
             disabled={prLoading || prSuccess}
-            className={`w-full transition-all ${
-              prSuccess 
-                ? 'bg-green-600 hover:bg-green-500 text-white' 
-                : 'bg-green-600 hover:bg-green-500 text-white'
-            }`}
+            className={`w-full transition-all ${prSuccess
+              ? 'bg-green-600 hover:bg-green-500 text-white'
+              : 'bg-green-600 hover:bg-green-500 text-white'
+              }`}
           >
             {prLoading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : prSuccess ? (
               <>
                 <Check className="w-5 h-5 mr-2" />
-                PR Created
+                Gist Created
               </>
             ) : (
-              'Create PR'
+              'Create Gist'
             )}
           </Button>
         </CardContent>

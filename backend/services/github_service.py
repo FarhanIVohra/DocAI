@@ -57,4 +57,39 @@ class GitHubService:
                 print(f"ERROR: Failed to post comment: {resp.status_code} - {resp.text}")
                 return False
 
+    async def create_gist(self, files: dict[str, str], description: str) -> Optional[str]:
+        """Create a public GitHub Gist with the generated files."""
+        if not GITHUB_TOKEN:
+            print("WARNING: GITHUB_TOKEN not set, cannot create Gist.")
+            return None
+
+        url = "https://api.github.com/gists"
+        
+        gist_files = {
+            filename: {"content": content} 
+            for filename, content in files.items() 
+            if content.strip()
+        }
+        
+        if not gist_files:
+            return None
+
+        payload = {
+            "description": description,
+            "public": True,
+            "files": gist_files
+        }
+        
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                url, 
+                headers=self.headers, 
+                json=payload
+            )
+            if resp.status_code == 201:
+                return resp.json().get("html_url")
+            else:
+                print(f"ERROR: Failed to create gist: {resp.status_code} - {resp.text}")
+                return None
+
 github_service = GitHubService()
