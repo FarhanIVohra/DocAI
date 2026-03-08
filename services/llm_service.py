@@ -25,7 +25,7 @@ load_dotenv()
 # ─── Config ──────────────────────────────────────────────────────────────────
 GRADIENT_ENDPOINT_URL  = os.getenv("GRADIENT_ENDPOINT_URL", "https://inference.do-ai.run/v1")
 GRADIENT_MODEL_ACCESS_KEY = os.getenv("GRADIENT_MODEL_ACCESS_KEY", "")  # NOT your DO personal key
-GRADIENT_MODEL         = os.getenv("GRADIENT_MODEL", "deepseek-ai/DeepSeek-R1")
+GRADIENT_MODEL         = os.getenv("GRADIENT_MODEL", "llama3.3-70b-instruct")
 
 
 DEFAULT_MAX_TOKENS  = 1024

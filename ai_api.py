@@ -121,19 +121,20 @@ async def generate_doc(request: DocGenerateRequest):
         if not target_type:
             raise HTTPException(status_code=400, detail=f"Unsupported doc type: {request.type}")
             
-        # In a real app, we'd fetch repo_meta from a database
-        # For now, we'll just pass the job_id and let the generator fetch the repo_url
-        repo_meta = get_indexer().get_repo_meta(request.job_id)
+        # Prioritize repo_meta from request, fallback to indexer (mock)
+        repo_meta = request.repo_meta or get_indexer().get_repo_meta(request.job_id)
         generator = get_generator()
         
+        print(f"DEBUG: Generating {target_type} for job {request.job_id} using metadata: {repo_meta}")
         content = generator.generate(target_type, request.job_id, repo_meta)
         return {"content": content}
     except HTTPException:
         raise
     except Exception as e:
         import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+        err_trace = traceback.format_exc()
+        print(f"ERROR during generation: {err_trace}")
+        raise HTTPException(status_code=500, detail=f"AI Generation Error: {str(e)}\n{err_trace}")
 
 @app.post("/api/ai/chat")
 async def chat(request: ChatMessageRequest):
