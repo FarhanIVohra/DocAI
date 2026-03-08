@@ -10,6 +10,14 @@ app = FastAPI(title="AutoDoc AI - AI Service API")
 # In a real app, use Redis or a database
 job_status = {}
 
+@app.get("/")
+async def root_health():
+    return {"status": "ok", "message": "AutoDoc AI Service is running"}
+
+@app.get("/api/ai/health")
+async def health_check():
+    return {"status": "ok", "service": "AI Microservice"}
+
 class RepoSubmitRequest(BaseModel):
     repo_url: str
     job_id: Optional[str] = None
