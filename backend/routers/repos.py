@@ -22,6 +22,22 @@ async def submit_repo(request: schemas.RepoSubmitRequest, db: Session = Depends(
 @router.get("/status/{job_id}", response_model=schemas.JobStatusResponse)
 async def get_status(job_id: str, db: Session = Depends(get_db)):
     job = job_service.get_job(db, job_id)
+    
+    # Self-healing: If job not in local SQLite, try to recover from AI service
+    if not job:
+        try:
+            ai_status = await ai_client.get_status(job_id)
+            if ai_status:
+                # Re-create the job in local database
+                job = job_service.create_job_with_id(
+                    db, 
+                    job_id=job_id, 
+                    repo_url=ai_status.get("repo_url", "unknown"),
+                    status=ai_status.get("status", "processing")
+                )
+        except Exception:
+            raise HTTPException(status_code=404, detail="Job not found in local DB or AI service")
+    
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     

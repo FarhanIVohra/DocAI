@@ -9,6 +9,13 @@ class JobService:
         db.refresh(db_job)
         return db_job
 
+    def create_job_with_id(self, db: Session, job_id: str, repo_url: str, status: str = "processing") -> models.Job:
+        db_job = models.Job(id=job_id, repo_url=repo_url, status=status)
+        db.add(db_job)
+        db.commit()
+        db.refresh(db_job)
+        return db_job
+
     def get_job(self, db: Session, job_id: str) -> models.Job | None:
         return db.query(models.Job).filter(models.Job.id == job_id).first()
 

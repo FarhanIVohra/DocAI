@@ -54,7 +54,13 @@ chat_sessions = {}
 def background_index(repo_url: str, job_id: str):
     try:
         def update_status(progress):
-            job_status[job_id] = {"status": "processing", "progress": progress}
+            current = job_status.get(job_id, {})
+            job_status[job_id] = {
+                "status": "processing", 
+                "progress": progress,
+                "repo_url": current.get("repo_url"),
+                "repo_name": current.get("repo_name")
+            }
             print(f"DEBUG: Job {job_id} progress updated to {progress}%")
 
         update_status(5)
@@ -68,7 +74,13 @@ def background_index(repo_url: str, job_id: str):
         # Use index_local_path with progress callback
         indexer.index_local_path(repo_path, job_id, repo_url=repo_url, update_status_callback=update_status)
         
-        job_status[job_id] = {"status": "ready", "progress": 100}
+        current = job_status.get(job_id, {})
+        job_status[job_id] = {
+            "status": "ready", 
+            "progress": 100,
+            "repo_url": current.get("repo_url", repo_url),
+            "repo_name": current.get("repo_name", repo_url.split("/")[-1])
+        }
         print(f"DEBUG: Job {job_id} indexing complete.")
     except Exception as e:
         import traceback
@@ -79,7 +91,16 @@ def background_index(repo_url: str, job_id: str):
 @app.post("/api/ai/index-repo")
 async def index_repo(request: RepoSubmitRequest, background_tasks: BackgroundTasks):
     job_id = request.job_id or str(uuid.uuid4())
-    job_status[job_id] = {"status": "pending", "progress": 0}
+    
+    # Extract a simple name from the URL
+    repo_name = request.repo_url.split("/")[-1].replace(".git", "")
+    
+    job_status[job_id] = {
+        "status": "pending", 
+        "progress": 0,
+        "repo_url": request.repo_url,
+        "repo_name": repo_name
+    }
     background_tasks.add_task(background_index, request.repo_url, job_id)
     return {"job_id": job_id}
 
