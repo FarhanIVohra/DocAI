@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from schemas import doc_schema as schemas
 from database import get_db
 from services.ai_client import ai_client
-from services import job_service
+from services.job_service import job_service
 import bleach
 
 router = APIRouter()
